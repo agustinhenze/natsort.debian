@@ -1,3 +1,9 @@
+natsort (3.2.1-1) unstable; urgency=medium
+
+  * New Upstream version 3.2.1
+
+ -- Agustin Henze <tin@debian.org>  Mon, 23 Jun 2014 18:11:59 -0300
+
 natsort (3.2.0-1) unstable; urgency=medium
 
   * Initial release. (Closes: #751813)
