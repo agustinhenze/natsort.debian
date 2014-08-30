@@ -7,6 +7,26 @@ from os.path import join
 
 # Non-std lib imports
 from setuptools import setup
+from setuptools.command.test import test as TestCommand
+
+
+class PyTest(TestCommand):
+    """Custom command to run pytest on all code."""
+
+    def finalize_options(self):
+        TestCommand.finalize_options(self)
+        self.test_args = []
+        self.test_suite = True
+
+    def run_tests(self):
+        # import here, cause outside the eggs aren't loaded
+        import pytest
+        err1 = pytest.main(['--cov', 'natsort', '--flakes', '--pep8'])
+        err2 = pytest.main(['--doctest-modules', 'natsort'])
+        err3 = pytest.main(['README.rst',
+                            'docs/source/intro.rst',
+                            'docs/source/examples.rst'])
+        return err1 | err2 | err3
 
 
 # Read the natsort.py file for the module version number
@@ -37,20 +57,21 @@ REQUIRES = 'argparse' if sys.version[:3] in ('2.6', '3.0', '3.1') else ''
 
 
 # The setup parameters
-setup(name='natsort',
-      version=VERSION,
-      author='Seth M. Morton',
-      author_email='drtuba78@gmail.com',
-      url='https://github.com/SethMMorton/natsort',
-      license='MIT',
-      install_requires=REQUIRES,
-      packages=['natsort'],
-      entry_points={'console_scripts': ['natsort = natsort.__main__:main']},
-      test_suite='natsort.natsort.test',
-      description=DESCRIPTION,
-      long_description=LONG_DESCRIPTION,
-      classifiers=(
-        #'Development Status :: 4 - Beta',
+setup(
+    name='natsort',
+    version=VERSION,
+    author='Seth M. Morton',
+    author_email='drtuba78@gmail.com',
+    url='https://github.com/SethMMorton/natsort',
+    license='MIT',
+    install_requires=REQUIRES,
+    packages=['natsort'],
+    entry_points={'console_scripts': ['natsort = natsort.__main__:main']},
+    tests_require=['pytest', 'pytest-pep8', 'pytest-flakes', 'pytest-cov'],
+    cmdclass={'test': PyTest},
+    description=DESCRIPTION,
+    long_description=LONG_DESCRIPTION,
+    classifiers=(
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'Intended Audience :: Science/Research',
@@ -64,5 +85,5 @@ setup(name='natsort',
         'Programming Language :: Python :: 3',
         'Topic :: Scientific/Engineering :: Information Analysis',
         'Topic :: Utilities',
-      )
-     )
+    )
+)
