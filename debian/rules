@@ -9,21 +9,27 @@ PACKAGE_NAME := $(shell dpkg-parsechangelog -SSource)
 export PYBUILD_NAME=$(PACKAGE_NAME)
 
 %:
-	dh $@ --with python2,python3 --buildsystem=pybuild
+	dh $@ --with python2,python3,sphinxdoc --buildsystem=pybuild
 
 override_dh_auto_clean:
 	dh_auto_clean
 	rm -f debian/natsort.1
 	rm -f debian/upstream.changelog
+	rm -rf docs/_build
 
 override_dh_installchangelogs:
 	cat README.rst | grep -A 10000 History > debian/upstream.changelog
 	dh_installchangelogs debian/upstream.changelog
 
+override_dh_auto_test:
+
 override_dh_auto_install:
 	dh_auto_install
-	rm debian/python3-natsort/usr/bin/natsort
-	PYTHONPATH=$(CURDIR) help2man --version-string="$(UPSTREAM_VERSION)" -n "Natural sorting for shell" debian/python-natsort/usr/bin/natsort > debian/natsort.1
+	rm debian/python-natsort/usr/bin/natsort
+	PYTHONPATH=$(CURDIR) help2man --version-string="$(UPSTREAM_VERSION)" -n "Natural sorting for shell" debian/python3-natsort/usr/bin/natsort > debian/natsort.1
+	set -ex; \
+		cd docs; \
+		sphinx-build -C -b html -Dmaster_doc=index source _build/html;
 
 get-orig-source:
 	@if [ ! -d "debian" ] ; then \
