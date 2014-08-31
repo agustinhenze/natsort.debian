@@ -48,6 +48,7 @@ Description: Natural sorting for python
 Package: python3-natsort
 Architecture: all
 Recommends: python-natsort-doc
+Breaks: python-natsort (<= 3.2.1-1)
 Depends: ${python3:Depends}, ${misc:Depends}
 Description: Natural sorting for python (Python3)
  natsort lets you apply natural sorting to your sequences easily, for example:
