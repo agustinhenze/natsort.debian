@@ -1,3 +1,9 @@
+natsort (3.4.1-2) unstable; urgency=medium
+
+  * Add breaks field between python3-natsort and python-natsort <= 3.2.1-1
+
+ -- Agustin Henze <tin@debian.org>  Sat, 30 Aug 2014 19:17:50 -0700
+
 natsort (3.4.1-1) unstable; urgency=medium
 
   * Imported Upstream version 3.4.1
