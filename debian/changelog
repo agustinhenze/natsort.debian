@@ -1,3 +1,10 @@
+natsort (3.5.1-1) unstable; urgency=medium
+
+  * Imported Upstream version 3.5.1
+  * Bumped Standard-Version to 3.9.6 (no changes required)
+
+ -- Agustin Henze <tin@debian.org>  Mon, 20 Oct 2014 20:00:02 -0300
+
 natsort (3.4.1-2) unstable; urgency=medium
 
   * Add breaks field between python3-natsort and python-natsort <= 3.2.1-1
