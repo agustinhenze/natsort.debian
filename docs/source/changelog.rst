@@ -3,6 +3,34 @@
 Changelog
 ---------
 
+09-25-2014 v. 3.5.1
+'''''''''''''''''''
+
+    - Fixed bug that caused list/tuples to fail when using 'ns.LOWECASEFIRST'
+      or 'ns.IGNORECASE'.
+    - Refactored modules so that only the public API was in natsort.py and
+      ns_enum.py.
+    - Refactored all import statements to be absolute, not relative.
+
+
+09-02-2014 v. 3.5.0
+'''''''''''''''''''
+
+    - Added the 'alg' argument to the 'natsort' functions.  This argument
+      accepts an enum that is used to indicate the options the user wishes
+      to use.  The 'number_type', 'signed', 'exp', 'as_path', and 'py3_safe'
+      options are being depreciated and will become (undocumented)
+      keyword-only options in natsort version 4.0.0.
+    - The user can now modify how 'natsort' handles the case of non-numeric
+      characters.
+    - The user can now instruct 'natsort' to use locale-aware sorting, which
+      allows 'natsort' to perform true "human sorting".
+
+      - The `humansorted` convenience function has been included to make this
+        easier.
+
+    - Updated shell script with locale functionality.
+
 08-12-2014 v. 3.4.1
 '''''''''''''''''''
 
