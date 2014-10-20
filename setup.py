@@ -21,7 +21,9 @@ class PyTest(TestCommand):
     def run_tests(self):
         # import here, cause outside the eggs aren't loaded
         import pytest
-        err1 = pytest.main(['--cov', 'natsort', '--flakes', '--pep8'])
+        err1 = pytest.main(['--cov', 'natsort',
+                            '--cov-report', 'term-missing',
+                            '--flakes', '--pep8'])
         err2 = pytest.main(['--doctest-modules', 'natsort'])
         err3 = pytest.main(['README.rst',
                             'docs/source/intro.rst',
@@ -67,7 +69,8 @@ setup(
     install_requires=REQUIRES,
     packages=['natsort'],
     entry_points={'console_scripts': ['natsort = natsort.__main__:main']},
-    tests_require=['pytest', 'pytest-pep8', 'pytest-flakes', 'pytest-cov'],
+    tests_require=['pytest', 'pytest-pep8',
+                   'pytest-flakes', 'pytest-cov'],
     cmdclass={'test': PyTest},
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,

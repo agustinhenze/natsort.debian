@@ -15,220 +15,23 @@ See the README or the natsort homepage for more details.
 from __future__ import (print_function, division,
                         unicode_literals, absolute_import)
 
-import re
-from os import curdir, pardir
-from os.path import split, splitext
+# Std lib. imports.
 from operator import itemgetter
 from functools import partial
-from itertools import islice
 from warnings import warn
 
-# If the user has fastnumbers installed, they will get great speed
-# benefits.  If not, we simulate the functions here.
-try:
-    from fastnumbers import fast_float, fast_int, isreal
-except ImportError:
-    from .fake_fastnumbers import fast_float, fast_int, isreal
-
-from .py23compat import u_format, py23_str, py23_zip
+# Local imports.
+from natsort.utils import _natsort_key, _args_to_enum
+from natsort.ns_enum import ns
+from natsort.py23compat import u_format
 
 # Make sure the doctest works for either python2 or python3
 __doc__ = u_format(__doc__)
 
-# The regex that locates floats
-float_sign_exp_re = re.compile(r'([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)')
-float_nosign_exp_re = re.compile(r'(\d*\.?\d+(?:[eE][-+]?\d+)?)')
-float_sign_noexp_re = re.compile(r'([-+]?\d*\.?\d+)')
-float_nosign_noexp_re = re.compile(r'(\d*\.?\d+)')
-# Integer regexes
-int_nosign_re = re.compile(r'(\d+)')
-int_sign_re = re.compile(r'([-+]?\d+)')
-# This dict will help select the correct regex and number conversion function.
-regex_and_num_function_chooser = {
-    (float, True,  True):  (float_sign_exp_re,     fast_float),
-    (float, True,  False): (float_sign_noexp_re,   fast_float),
-    (float, False, True):  (float_nosign_exp_re,   fast_float),
-    (float, False, False): (float_nosign_noexp_re, fast_float),
-    (int,   True,  True):  (int_sign_re,   fast_int),
-    (int,   True,  False): (int_sign_re,   fast_int),
-    (int,   False, True):  (int_nosign_re, fast_int),
-    (int,   False, False): (int_nosign_re, fast_int),
-    (None,  True,  True):  (int_nosign_re, fast_int),
-    (None,  True,  False): (int_nosign_re, fast_int),
-    (None,  False, True):  (int_nosign_re, fast_int),
-    (None,  False, False): (int_nosign_re, fast_int),
-}
-
-
-def _number_finder(s, regex, numconv, py3_safe):
-    """Helper to split numbers"""
-
-    # Split the input string by numbers. If there are no splits, return now.
-    # If the input is not a string, TypeError is raised.
-    s = regex.split(s)
-    if len(s) == 1:
-        return tuple(s)
-
-    # Now convert the numbers to numbers, and leave strings as strings.
-    # Remove empty strings from the list.
-    s = [numconv(x) for x in s if x]
-
-    # If the list begins with a number, lead with an empty string.
-    # This is used to get around the "unorderable types" issue.
-    if isreal(s[0]):
-        s = [''] + s
-
-    # The _py3_safe function inserts "" between numbers in the list,
-    # and is used to get around "unorderable types" in complex cases.
-    # It is a separate function that needs to be requested specifically
-    # because it is expensive to call.
-    return _py3_safe(s) if py3_safe else s
-
-
-def _path_splitter(s, _d_match=re.compile(r'\.\d').match):
-    """Split a string into its path components. Assumes a string is a path."""
-    path_parts = []
-    p_append = path_parts.append
-    path_location = s
-
-    # Continue splitting the path from the back until we have reached
-    # '..' or '.', or until there is nothing left to split.
-    while path_location != curdir and path_location != pardir:
-        parent_path = path_location
-        path_location, child_path = split(parent_path)
-        if path_location == parent_path:
-            break
-        p_append(child_path)
-
-    # This last append is the base path.
-    # Only append if the string is non-empty.
-    if path_location:
-        p_append(path_location)
-
-    # We created this list in reversed order, so we now correct the order.
-    path_parts.reverse()
-
-    # Now, split off the file extensions using a similar method to above.
-    # Continue splitting off file extensions until we reach a decimal number
-    # or there are no more extensions.
-    base = path_parts.pop()
-    base_parts = []
-    b_append = base_parts.append
-    while True:
-        front = base
-        base, ext = splitext(front)
-        if _d_match(ext) or not ext:
-            # Reset base to before the split if the split is invalid.
-            base = front
-            break
-        b_append(ext)
-    b_append(base)
-    base_parts.reverse()
-
-    # Return the split parent paths and then the split basename.
-    return path_parts + base_parts
-
-
-def _py3_safe(parsed_list):
-    """Insert '' between two numbers."""
-    length = len(parsed_list)
-    if length < 2:
-        return parsed_list
-    else:
-        new_list = [parsed_list[0]]
-        nl_append = new_list.append
-        for before, after in py23_zip(islice(parsed_list, 0, length-1),
-                                      islice(parsed_list, 1, None)):
-            if isreal(before) and isreal(after):
-                nl_append("")
-            nl_append(after)
-        return new_list
-
-
-def _natsort_key(val, key=None, number_type=float, signed=True, exp=True,
-                 as_path=False, py3_safe=False):
-    """\
-    Key to sort strings and numbers naturally.
-
-    It works by separating out the numbers from the strings. This function for
-    internal use only. See the natsort_keygen documentation for details of each
-    parameter.
-
-    Parameters
-    ----------
-    val : {str, unicode}
-    key : callable, optional
-    number_type : {None, float, int}, optional
-    signed : {True, False}, optional
-    exp : {True, False}, optional
-    as_path : {True, False}, optional
-    py3_safe : {True, False}, optional
-
-    Returns
-    -------
-    out : tuple
-        The modified value with numbers extracted.
-
-    """
-
-    # Convert the arguments to the proper input tuple
-    inp_options = (number_type, signed, exp)
-    try:
-        regex, num_function = regex_and_num_function_chooser[inp_options]
-    except KeyError:
-        # Report errors properly
-        if number_type not in (float, int) and number_type is not None:
-            raise ValueError("_natsort_key: 'number_type' parameter "
-                             "'{0}' invalid".format(py23_str(number_type)))
-        elif signed not in (True, False):
-            raise ValueError("_natsort_key: 'signed' parameter "
-                             "'{0}' invalid".format(py23_str(signed)))
-        elif exp not in (True, False):
-            raise ValueError("_natsort_key: 'exp' parameter "
-                             "'{0}' invalid".format(py23_str(exp)))
-    else:
-        # Apply key if needed.
-        if key is not None:
-            val = key(val)
-
-        # If this is a path, convert it.
-        # An AttrubuteError is raised if not a string.
-        split_as_path = False
-        if as_path:
-            try:
-                val = _path_splitter(val)
-            except AttributeError:
-                pass
-            else:
-                # Record that this string was split as a path so that
-                # we can set as_path to False in the recursive call.
-                split_as_path = True
-
-        # Assume the input are strings, which is the most common case.
-        try:
-            return tuple(_number_finder(val, regex, num_function, py3_safe))
-        except TypeError:
-            # If not strings, assume it is an iterable that must
-            # be parsed recursively. Do not apply the key recursively.
-            # If this string was split as a path, set as_path to False.
-            try:
-                return tuple([_natsort_key(x, None, number_type, signed,
-                                           exp, as_path and not split_as_path,
-                                           py3_safe) for x in val])
-            # If there is still an error, it must be a number.
-            # Return as-is, with a leading empty string.
-            # Waiting for two raised errors instead of calling
-            # isinstance at the opening of the function is slower
-            # for numbers but much faster for strings, and since
-            # numbers are not a common input to natsort this is
-            # an acceptable sacrifice.
-            except TypeError:
-                return (('', val,),) if as_path else ('', val,)
-
 
 @u_format
-def natsort_key(val, key=None, number_type=float, signed=True, exp=True,
-                as_path=False, py3_safe=False):
+def natsort_key(val, key=None, number_type=float, signed=None, exp=None,
+                as_path=None, py3_safe=None, alg=0):
     """\
     Key to sort strings and numbers naturally.
 
@@ -257,39 +60,39 @@ def natsort_key(val, key=None, number_type=float, signed=True, exp=True,
         It should accept a single argument and return a single value.
 
     number_type : {{None, float, int}}, optional
-        The types of number to sort on: `float` searches for floating
-        point numbers, `int` searches for integers, and `None` searches
-        for digits (like integers but does not take into account
-        negative sign). `None` is a shortcut for `number_type = int`
-        and `signed = False`.
+        Depreciated as of version 3.5.0 and will become an undocumented
+        keyword-only argument in 4.0.0. Please use the `alg` argument
+        for all future development. See :class:`ns` class documentation for
+        details.
 
     signed : {{True, False}}, optional
-        By default a '+' or '-' before a number is taken to be the sign
-        of the number. If `signed` is `False`, any '+' or '-' will not
-        be considered to be part of the number, but as part part of the
-        string.
+        Depreciated as of version 3.5.0 and will become an undocumented
+        keyword-only argument in 4.0.0. Please use the `alg` argument
+        for all future development. See :class:`ns` class documentation for
+        details.
 
     exp : {{True, False}}, optional
-        This option only applies to `number_type = float`.  If
-        `exp = True`, a string like "3.5e5" will be interpreted as
-        350000, i.e. the exponential part is considered to be part of
-        the number. If `exp = False`, "3.5e5" is interpreted as
-        ``(3.5, "e", 5)``. The default behavior is `exp = True`.
+        Depreciated as of version 3.5.0 and will become an undocumented
+        keyword-only argument in 4.0.0. Please use the `alg` argument
+        for all future development. See :class:`ns` class documentation for
+        details.
 
     as_path : {{True, False}}, optional
-        This option will force strings to be interpreted as filesystem
-        paths, so they will be split according to the filesystem separator
-        (i.e. '/' on UNIX, '\\\\' on Windows), as well as splitting on the
-        file extension, if any. Without this, lists of file paths like
-        ``['Folder', 'Folder (1)', 'Folder (10)']`` will not be sorted
-        properly; ``'Folder'`` will be placed at the end, not at the front.
-        The default behavior is `as_path = False`.
+        Depreciated as of version 3.5.0 and will become an undocumented
+        keyword-only argument in 4.0.0. Please use the `alg` argument
+        for all future development. See :class:`ns` class documentation for
+        details.
 
     py3_safe : {{True, False}}, optional
-        This will make the string parsing algorithm be more careful by
-        placing an empty string between two adjacent numbers after the
-        parsing algorithm. This will prevent the "unorderable types"
-        error.
+        Depreciated as of version 3.5.0 and will become an undocumented
+        keyword-only argument in 4.0.0. Please use the `alg` argument
+        for all future development. See :class:`ns` class documentation for
+        details.
+
+    alg : ns enum, optional
+        This option is used to control which algorithm `natsort`
+        uses when sorting. For details into these options, please see
+        the :class:`ns` class documentation. The default is `ns.FLOAT`.
 
     Returns
     -------
@@ -348,12 +151,13 @@ def natsort_key(val, key=None, number_type=float, signed=True, exp=True,
     """
     msg = "natsort_key is depreciated as of 3.4.0, please use natsort_keygen"
     warn(msg, DeprecationWarning)
-    return _natsort_key(val, key, number_type, signed, exp, as_path, py3_safe)
+    alg = _args_to_enum(number_type, signed, exp, as_path, py3_safe) | alg
+    return _natsort_key(val, key, alg)
 
 
 @u_format
-def natsort_keygen(key=None, number_type=float, signed=True, exp=True,
-                   as_path=False, py3_safe=False):
+def natsort_keygen(key=None, number_type=float, signed=None, exp=None,
+                   as_path=None, py3_safe=None, alg=0):
     """\
     Generate a key to sort strings and numbers naturally.
 
@@ -373,39 +177,39 @@ def natsort_keygen(key=None, number_type=float, signed=True, exp=True,
         It should accept a single argument and return a single value.
 
     number_type : {{None, float, int}}, optional
-        The types of number to sort on: `float` searches for floating
-        point numbers, `int` searches for integers, and `None` searches
-        for digits (like integers but does not take into account
-        negative sign). `None` is a shortcut for `number_type = int`
-        and `signed = False`.
+        Depreciated as of version 3.5.0 and will become an undocumented
+        keyword-only argument in 4.0.0. Please use the `alg` argument
+        for all future development. See :class:`ns` class documentation for
+        details.
 
     signed : {{True, False}}, optional
-        By default a '+' or '-' before a number is taken to be the sign
-        of the number. If `signed` is `False`, any '+' or '-' will not
-        be considered to be part of the number, but as part part of the
-        string.
+        Depreciated as of version 3.5.0 and will become an undocumented
+        keyword-only argument in 4.0.0. Please use the `alg` argument
+        for all future development. See :class:`ns` class documentation for
+        details.
 
     exp : {{True, False}}, optional
-        This option only applies to `number_type = float`.  If
-        `exp = True`, a string like "3.5e5" will be interpreted as
-        350000, i.e. the exponential part is considered to be part of
-        the number. If `exp = False`, "3.5e5" is interpreted as
-        ``(3.5, "e", 5)``. The default behavior is `exp = True`.
+        Depreciated as of version 3.5.0 and will become an undocumented
+        keyword-only argument in 4.0.0. Please use the `alg` argument
+        for all future development. See :class:`ns` class documentation for
+        details.
 
     as_path : {{True, False}}, optional
-        This option will force strings to be interpreted as filesystem
-        paths, so they will be split according to the filesystem separator
-        (i.e. `/` on UNIX, `\\\\` on Windows), as well as splitting on the
-        file extension, if any. Without this, lists with file paths like
-        ``['Folder/', 'Folder (1)/', 'Folder (10)/']`` will not be sorted
-        properly; ``'Folder'`` will be placed at the end, not at the front.
-        The default behavior is `as_path = False`.
+        Depreciated as of version 3.5.0 and will become an undocumented
+        keyword-only argument in 4.0.0. Please use the `alg` argument
+        for all future development. See :class:`ns` class documentation for
+        details.
 
     py3_safe : {{True, False}}, optional
-        This will make the string parsing algorithm be more careful by
-        placing an empty string between two adjacent numbers after the
-        parsing algorithm. This will prevent the "unorderable types"
-        error.
+        Depreciated as of version 3.5.0 and will become an undocumented
+        keyword-only argument in 4.0.0. Please use the `alg` argument
+        for all future development. See :class:`ns` class documentation for
+        details.
+
+    alg : ns enum, optional
+        This option is used to control which algorithm `natsort`
+        uses when sorting. For details into these options, please see
+        the :class:`ns` class documentation. The default is `ns.FLOAT`.
 
     Returns
     -------
@@ -440,18 +244,13 @@ def natsort_keygen(key=None, number_type=float, signed=True, exp=True,
         True
 
     """
-    return partial(_natsort_key,
-                   key=key,
-                   number_type=number_type,
-                   signed=signed,
-                   exp=exp,
-                   as_path=as_path,
-                   py3_safe=py3_safe)
+    alg = _args_to_enum(number_type, signed, exp, as_path, py3_safe) | alg
+    return partial(_natsort_key, key=key, alg=alg)
 
 
 @u_format
-def natsorted(seq, key=None, number_type=float, signed=True, exp=True,
-              reverse=False, as_path=False):
+def natsorted(seq, key=None, number_type=float, signed=None, exp=None,
+              reverse=False, as_path=None, alg=0):
     """\
     Sorts a sequence naturally.
 
@@ -470,37 +269,37 @@ def natsorted(seq, key=None, number_type=float, signed=True, exp=True,
         It should accept a single argument and return a single value.
 
     number_type : {{None, float, int}}, optional
-        The types of number to sort on: `float` searches for floating
-        point numbers, `int` searches for integers, and `None` searches
-        for digits (like integers but does not take into account
-        negative sign). `None` is a shortcut for `number_type = int`
-        and `signed = False`.
+        Depreciated as of version 3.5.0 and will become an undocumented
+        keyword-only argument in 4.0.0. Please use the `alg` argument
+        for all future development. See :class:`ns` class documentation for
+        details.
 
     signed : {{True, False}}, optional
-        By default a '+' or '-' before a number is taken to be the sign
-        of the number. If `signed` is `False`, any '+' or '-' will not
-        be considered to be part of the number, but as part part of the
-        string.
+        Depreciated as of version 3.5.0 and will become an undocumented
+        keyword-only argument in 4.0.0. Please use the `alg` argument
+        for all future development. See :class:`ns` class documentation for
+        details.
 
     exp : {{True, False}}, optional
-        This option only applies to `number_type = float`.  If
-        `exp = True`, a string like "3.5e5" will be interpreted as
-        350000, i.e. the exponential part is considered to be part of
-        the number. If `exp = False`, "3.5e5" is interpreted as
-        ``(3.5, "e", 5)``. The default behavior is `exp = True`.
+        Depreciated as of version 3.5.0 and will become an undocumented
+        keyword-only argument in 4.0.0. Please use the `alg` argument
+        for all future development. See :class:`ns` class documentation for
+        details.
 
     reverse : {{True, False}}, optional
         Return the list in reversed sorted order. The default is
         `False`.
 
     as_path : {{True, False}}, optional
-        This option will force strings to be interpreted as filesystem
-        paths, so they will be split according to the filesystem separator
-        (i.e. '/' on UNIX, '\\\\' on Windows), as well as splitting on the
-        file extension, if any. Without this, lists of file paths like
-        ``['Folder', 'Folder (1)', 'Folder (10)']`` will not be sorted
-        properly; ``'Folder'`` will be placed at the end, not at the front.
-        The default behavior is `as_path = False`.
+        Depreciated as of version 3.5.0 and will become an undocumented
+        keyword-only argument in 4.0.0. Please use the `alg` argument
+        for all future development. See :class:`ns` class documentation for
+        details.
+
+    alg : ns enum, optional
+        This option is used to control which algorithm `natsort`
+        uses when sorting. For details into these options, please see
+        the :class:`ns` class documentation. The default is `ns.FLOAT`.
 
     Returns
     -------
@@ -510,7 +309,8 @@ def natsorted(seq, key=None, number_type=float, signed=True, exp=True,
     See Also
     --------
     natsort_keygen : Generates the key that makes natural sorting possible.
-    versorted : A wrapper for ``natsorted(seq, number_type=None)``.
+    versorted : A wrapper for ``natsorted(seq, alg=ns.VERSION)``.
+    humansorted : A wrapper for ``natsorted(seq, alg=ns.LOCALE)``.
     index_natsorted : Returns the sorted indexes from `natsorted`.
 
     Examples
@@ -522,30 +322,29 @@ def natsorted(seq, key=None, number_type=float, signed=True, exp=True,
         [{u}'num2', {u}'num3', {u}'num5']
 
     """
+    alg = _args_to_enum(number_type, signed, exp, as_path, None) | alg
     try:
         return sorted(seq, reverse=reverse,
-                      key=natsort_keygen(key, number_type,
-                                         signed, exp, as_path))
-    except TypeError as e:
+                      key=natsort_keygen(key, alg=alg))
+    except TypeError as e:  # pragma: no cover
         # In the event of an unresolved "unorderable types" error
         # attempt to sort again, being careful to prevent this error.
         if 'unorderable types' in str(e):
             return sorted(seq, reverse=reverse,
-                          key=natsort_keygen(key, number_type,
-                                             signed, exp, as_path,
-                                             True))
+                          key=natsort_keygen(key,
+                                             alg=alg | ns.TYPESAFE))
         else:
             # Re-raise if the problem was not "unorderable types"
             raise
 
 
 @u_format
-def versorted(seq, key=None, reverse=False, as_path=False):
+def versorted(seq, key=None, reverse=False, as_path=None, alg=0):
     """\
     Convenience function to sort version numbers.
 
     Convenience function to sort version numbers. This is a wrapper
-    around ``natsorted(seq, number_type=None)``.
+    around ``natsorted(seq, alg=ns.VERSION)``.
 
     Parameters
     ----------
@@ -562,13 +361,15 @@ def versorted(seq, key=None, reverse=False, as_path=False):
         `False`.
 
     as_path : {{True, False}}, optional
-        This option will force strings to be interpreted as filesystem
-        paths, so they will be split according to the filesystem separator
-        (i.e. '/' on UNIX, '\\\\' on Windows), as well as splitting on the
-        file extension, if any. Without this, lists of file paths like
-        ``['Folder', 'Folder (1)', 'Folder (10)']`` will not be sorted
-        properly; ``'Folder'`` will be placed at the end, not at the front.
-        The default behavior is `as_path = False`.
+        Depreciated as of version 3.5.0 and will become an undocumented
+        keyword-only argument in 4.0.0. Please use the `alg` argument
+        for all future development. See :class:`ns` class documentation for
+        details.
+
+    alg : ns enum, optional
+        This option is used to control which algorithm `natsort`
+        uses when sorting. For details into these options, please see
+        the :class:`ns` class documentation. The default is `ns.FLOAT`.
 
     Returns
     -------
@@ -588,12 +389,93 @@ def versorted(seq, key=None, reverse=False, as_path=False):
         [{u}'num3.4.1', {u}'num3.4.2', {u}'num4.0.2']
 
     """
-    return natsorted(seq, key, None, reverse=reverse, as_path=as_path)
+    alg = _args_to_enum(float, None, None, as_path, None) | alg
+    return natsorted(seq, key, reverse=reverse, alg=alg | ns.VERSION)
 
 
 @u_format
-def index_natsorted(seq, key=None, number_type=float, signed=True, exp=True,
-                    reverse=False, as_path=False):
+def humansorted(seq, key=None, reverse=False, alg=0):
+    """\
+    Convenience function to properly sort non-numeric characters.
+
+    Convenience function to properly sort non-numeric characters
+    in a locale-aware fashion (a.k.a "human sorting"). This is a
+    wrapper around ``natsorted(seq, alg=ns.LOCALE)``.
+
+    .. warning:: On some systems, the underlying C library that
+                 Python's locale module uses is broken. On these
+                 systems it is recommended that you install
+                 `PyICU <https://pypi.python.org/pypi/PyICU>`_.
+                 Please validate that this function works as
+                 expected on your target system, and if not you
+                 should add
+                 `PyICU <https://pypi.python.org/pypi/PyICU>`_
+                 as a dependency.
+
+    Parameters
+    ----------
+    seq : iterable
+        The sequence to sort.
+
+    key : callable, optional
+        A key used to determine how to sort each element of the sequence.
+        It is **not** applied recursively.
+        It should accept a single argument and return a single value.
+
+    reverse : {{True, False}}, optional
+        Return the list in reversed sorted order. The default is
+        `False`.
+
+    alg : ns enum, optional
+        This option is used to control which algorithm `natsort`
+        uses when sorting. For details into these options, please see
+        the :class:`ns` class documentation. The default is `ns.FLOAT`.
+
+    Returns
+    -------
+    out : list
+        The sorted sequence.
+
+    See Also
+    --------
+    index_humansorted : Returns the sorted indexes from `humansorted`.
+
+    Notes
+    -----
+    You may find that if you do not explicitly set
+    the locale your results may not be as you expect... I have found that
+    it depends on the system you are on. To do this is straightforward
+    (in the below example I use 'en_US.UTF-8', but you should use your
+    locale)::
+
+        >>> import locale
+        >>> # The 'str' call is only to get around a bug on Python 2.x
+        >>> # where 'setlocale' does not expect unicode strings (ironic,
+        >>> # right?)
+        >>> locale.setlocale(locale.LC_ALL, str('en_US.UTF-8'))
+        'en_US.UTF-8'
+
+    It is preferred that you do this before importing `natsort`.
+    If you use `PyICU <https://pypi.python.org/pypi/PyICU>`_ (see warning
+    above) then you should not need to do this.
+
+    Examples
+    --------
+    Use `humansorted` just like the builtin `sorted`::
+
+        >>> a = ['Apple', 'Banana', 'apple', 'banana']
+        >>> natsorted(a)
+        [{u}'Apple', {u}'Banana', {u}'apple', {u}'banana']
+        >>> humansorted(a)
+        [{u}'apple', {u}'Apple', {u}'banana', {u}'Banana']
+
+    """
+    return natsorted(seq, key, reverse=reverse, alg=alg | ns.LOCALE)
+
+
+@u_format
+def index_natsorted(seq, key=None, number_type=float, signed=None, exp=None,
+                    reverse=False, as_path=None, alg=0):
     """\
     Return the list of the indexes used to sort the input sequence.
 
@@ -613,37 +495,37 @@ def index_natsorted(seq, key=None, number_type=float, signed=True, exp=True,
         It should accept a single argument and return a single value.
 
     number_type : {{None, float, int}}, optional
-        The types of number to sort on: `float` searches for floating
-        point numbers, `int` searches for integers, and `None` searches
-        for digits (like integers but does not take into account
-        negative sign). `None` is a shortcut for `number_type = int`
-        and `signed = False`.
+        Depreciated as of version 3.5.0 and will become an undocumented
+        keyword-only argument in 4.0.0. Please use the `alg` argument
+        for all future development. See :class:`ns` class documentation for
+        details.
 
     signed : {{True, False}}, optional
-        By default a '+' or '-' before a number is taken to be the sign
-        of the number. If `signed` is `False`, any '+' or '-' will not
-        be considered to be part of the number, but as part part of the
-        string.
+        Depreciated as of version 3.5.0 and will become an undocumented
+        keyword-only argument in 4.0.0. Please use the `alg` argument
+        for all future development. See :class:`ns` class documentation for
+        details.
 
     exp : {{True, False}}, optional
-        This option only applies to `number_type = float`.  If
-        `exp = True`, a string like "3.5e5" will be interpreted as
-        350000, i.e. the exponential part is considered to be part of
-        the number. If `exp = False`, "3.5e5" is interpreted as
-        ``(3.5, "e", 5)``. The default behavior is `exp = True`.
+        Depreciated as of version 3.5.0 and will become an undocumented
+        keyword-only argument in 4.0.0. Please use the `alg` argument
+        for all future development. See :class:`ns` class documentation for
+        details.
 
     reverse : {{True, False}}, optional
         Return the list in reversed sorted order. The default is
         `False`.
 
     as_path : {{True, False}}, optional
-        This option will force strings to be interpreted as filesystem
-        paths, so they will be split according to the filesystem separator
-        (i.e. '/' on UNIX, '\\\\' on Windows), as well as splitting on the
-        file extension, if any. Without this, lists of file paths like
-        ``['Folder', 'Folder (1)', 'Folder (10)']`` will not be sorted
-        properly; ``'Folder'`` will be placed at the end, not at the front.
-        The default behavior is `as_path = False`.
+        Depreciated as of version 3.5.0 and will become an undocumented
+        keyword-only argument in 4.0.0. Please use the `alg` argument
+        for all future development. See :class:`ns` class documentation for
+        details.
+
+    alg : ns enum, optional
+        This option is used to control which algorithm `natsort`
+        uses when sorting. For details into these options, please see
+        the :class:`ns` class documentation. The default is `ns.FLOAT`.
 
     Returns
     -------
@@ -673,6 +555,7 @@ def index_natsorted(seq, key=None, number_type=float, signed=True, exp=True,
         [{u}'baz', {u}'foo', {u}'bar']
 
     """
+    alg = _args_to_enum(number_type, signed, exp, as_path, None) | alg
     if key is None:
         newkey = itemgetter(1)
     else:
@@ -681,16 +564,14 @@ def index_natsorted(seq, key=None, number_type=float, signed=True, exp=True,
     index_seq_pair = [[x, y] for x, y in enumerate(seq)]
     try:
         index_seq_pair.sort(reverse=reverse,
-                            key=natsort_keygen(newkey, number_type,
-                                               signed, exp, as_path))
-    except TypeError as e:
+                            key=natsort_keygen(newkey, alg=alg))
+    except TypeError as e:  # pragma: no cover
         # In the event of an unresolved "unorderable types" error
         # attempt to sort again, being careful to prevent this error.
         if 'unorderable types' in str(e):
             index_seq_pair.sort(reverse=reverse,
-                                key=natsort_keygen(newkey, number_type,
-                                                   signed, exp, as_path,
-                                                   True))
+                                key=natsort_keygen(newkey,
+                                                   alg=alg | ns.TYPESAFE))
         else:
             # Re-raise if the problem was not "unorderable types"
             raise
@@ -698,12 +579,12 @@ def index_natsorted(seq, key=None, number_type=float, signed=True, exp=True,
 
 
 @u_format
-def index_versorted(seq, key=None, reverse=False, as_path=False):
+def index_versorted(seq, key=None, reverse=False, as_path=None, alg=0):
     """\
     Return the list of the indexes used to sort the input sequence
     of version numbers.
 
-    Sorts a sequence naturally, but returns a list of sorted the
+    Sorts a sequence of version, but returns a list of sorted the
     indexes and not the sorted list. This list of indexes can be
     used to sort multiple lists by the sorted order of the given
     sequence.
@@ -725,13 +606,15 @@ def index_versorted(seq, key=None, reverse=False, as_path=False):
         `False`.
 
     as_path : {{True, False}}, optional
-        This option will force strings to be interpreted as filesystem
-        paths, so they will be split according to the filesystem separator
-        (i.e. '/' on UNIX, '\\\\' on Windows), as well as splitting on the
-        file extension, if any. Without this, lists of file paths like
-        ``['Folder', 'Folder (1)', 'Folder (10)']`` will not be sorted
-        properly; ``'Folder'`` will be placed at the end, not at the front.
-        The default behavior is `as_path = False`.
+        Depreciated as of version 3.5.0 and will become an undocumented
+        keyword-only argument in 4.0.0. Please use the `alg` argument
+        for all future development. See :class:`ns` class documentation for
+        details.
+
+    alg : ns enum, optional
+        This option is used to control which algorithm `natsort`
+        uses when sorting. For details into these options, please see
+        the :class:`ns` class documentation. The default is `ns.FLOAT`.
 
     Returns
     -------
@@ -752,7 +635,81 @@ def index_versorted(seq, key=None, reverse=False, as_path=False):
         [1, 2, 0]
 
     """
-    return index_natsorted(seq, key, None, reverse=reverse, as_path=as_path)
+    alg = _args_to_enum(float, None, None, as_path, None) | alg
+    return index_natsorted(seq, key, reverse=reverse, alg=alg | ns.VERSION)
+
+
+@u_format
+def index_humansorted(seq, key=None, reverse=False, alg=0):
+    """\
+    Return the list of the indexes used to sort the input sequence
+    in a locale-aware manner.
+
+    Sorts a sequence in a locale-aware manner, but returns a list
+    of sorted the indexes and not the sorted list. This list of
+    indexes can be used to sort multiple lists by the sorted order
+    of the given sequence.
+
+    This is a wrapper around ``index_natsorted(seq, alg=ns.LOCALE)``.
+
+    Parameters
+    ----------
+    seq: iterable
+        The sequence to sort.
+
+    key: callable, optional
+        A key used to determine how to sort each element of the sequence.
+        It is **not** applied recursively.
+        It should accept a single argument and return a single value.
+
+    reverse : {{True, False}}, optional
+        Return the list in reversed sorted order. The default is
+        `False`.
+
+    alg : ns enum, optional
+        This option is used to control which algorithm `natsort`
+        uses when sorting. For details into these options, please see
+        the :class:`ns` class documentation. The default is `ns.FLOAT`.
+
+    Returns
+    -------
+    out : tuple
+        The ordered indexes of the sequence.
+
+    See Also
+    --------
+    humansorted
+    order_by_index
+
+    Notes
+    -----
+    You may find that if you do not explicitly set
+    the locale your results may not be as you expect... I have found that
+    it depends on the system you are on. To do this is straightforward
+    (in the below example I use 'en_US.UTF-8', but you should use your
+    locale)::
+
+        >>> import locale
+        >>> # The 'str' call is only to get around a bug on Python 2.x
+        >>> # where 'setlocale' does not expect unicode strings (ironic,
+        >>> # right?)
+        >>> locale.setlocale(locale.LC_ALL, str('en_US.UTF-8'))
+        'en_US.UTF-8'
+
+    It is preferred that you do this before importing `natsort`.
+    If you use `PyICU <https://pypi.python.org/pypi/PyICU>`_ (see warning
+    above) then you should not need to do this.
+
+    Examples
+    --------
+    Use `index_humansorted` just like the builtin `sorted`::
+
+        >>> a = ['Apple', 'Banana', 'apple', 'banana']
+        >>> index_humansorted(a)
+        [2, 0, 3, 1]
+
+    """
+    return index_natsorted(seq, key, reverse=reverse, alg=alg | ns.LOCALE)
 
 
 @u_format
@@ -792,6 +749,7 @@ def order_by_index(seq, index, iter=False):
     --------
     index_natsorted
     index_versorted
+    index_humansorted
 
     Examples
     --------
