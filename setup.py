@@ -23,7 +23,11 @@ class PyTest(TestCommand):
         import pytest
         err1 = pytest.main(['--cov', 'natsort',
                             '--cov-report', 'term-missing',
-                            '--flakes', '--pep8'])
+                            '--flakes',
+                            '--pep8',
+                            # '--failed',
+                            # '-v',
+                            ])
         err2 = pytest.main(['--doctest-modules', 'natsort'])
         err3 = pytest.main(['README.rst',
                             'docs/source/intro.rst',
@@ -44,7 +48,6 @@ with open(VERSIONFILE, "rt") as fl:
         s = "Unable to locate version string in {0}"
         raise RuntimeError(s.format(VERSIONFILE))
 
-
 # Read in the documentation for the long_description
 DESCRIPTION = 'Sort lists naturally'
 try:
@@ -53,10 +56,16 @@ try:
 except IOError:
     LONG_DESCRIPTION = DESCRIPTION
 
-
 # The argparse module was introduced in python 2.7 or python 3.2
 REQUIRES = 'argparse' if sys.version[:3] in ('2.6', '3.0', '3.1') else ''
 
+# Testing needs pytest, and mock if less than python 3.3
+TESTS_REQUIRE = ['pytest', 'pytest-pep8', 'pytest-flakes',
+                 'pytest-cov', 'hypothesis']
+if sys.version[0] == 2 or (sys.version[3] == '3' and int(sys.version[2]) < 3):
+    TESTS_REQUIRE.append('mock')
+if sys.version[0] == 2 or (sys.version[3] == '3' and int(sys.version[2]) < 4):
+    TESTS_REQUIRE.append('pathlib')
 
 # The setup parameters
 setup(
@@ -69,8 +78,7 @@ setup(
     install_requires=REQUIRES,
     packages=['natsort'],
     entry_points={'console_scripts': ['natsort = natsort.__main__:main']},
-    tests_require=['pytest', 'pytest-pep8',
-                   'pytest-flakes', 'pytest-cov'],
+    tests_require=TESTS_REQUIRE,
     cmdclass={'test': PyTest},
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
