@@ -1,3 +1,10 @@
+natsort (4.0.1-1) unstable; urgency=medium
+
+  * Imported Upstream version 3.5.1
+  * Added myself into Uploaders field.
+
+ -- Ulises Vitulli <dererk@debian.org>  Sat, 20 Jun 2015 11:48:18 -0300
+
 natsort (3.5.1-1) unstable; urgency=medium
 
   * Imported Upstream version 3.5.1

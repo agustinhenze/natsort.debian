@@ -2,6 +2,7 @@ Source: natsort
 Section: python
 Priority: optional
 Maintainer: Agustin Henze <tin@debian.org>
+Uploaders: Ulises Vitulli <dererk@debian.org>
 Build-Depends:
  debhelper (>= 9),
  dh-python,
@@ -41,7 +42,7 @@ Description: Natural sorting for python
  natsort comes with a shell script to use natural sorting in shell scripts. You
  can also execute natsort from the command line with python -m natsort.
  .
- There exists another natural sorting package for python called
+ There exists another natural sorting package for Python called
  python-naturalsort. You may prefer that package if you wish to only sort
  version numbers.
 
@@ -50,7 +51,7 @@ Architecture: all
 Recommends: python-natsort-doc
 Breaks: python-natsort (<= 3.2.1-1)
 Depends: ${python3:Depends}, ${misc:Depends}
-Description: Natural sorting for python (Python3)
+Description: Natural sorting for Python (python3)
  natsort lets you apply natural sorting to your sequences easily, for example:
  .
  >>> from natsort import natsorted
@@ -66,7 +67,7 @@ Description: Natural sorting for python (Python3)
  natsort comes with a shell script to use natural sorting in shell scripts. You
  can also execute natsort from the command line with python -m natsort.
  .
- There exists another natural sorting package for python called
+ There exists another natural sorting package for Python called
  python-naturalsort. You may prefer that package if you wish to only sort
  version numbers.
 
@@ -76,7 +77,7 @@ Architecture: all
 Section: doc
 Depends: ${misc:Depends}, ${sphinxdoc:Depends}
 Recommends: python3-natsort
-Description: Natural sorting for python (doc)
+Description: Natural sorting for Python (doc)
  natsort lets you apply natural sorting to your sequences easily, for example:
  .
  >>> from natsort import natsorted
@@ -92,7 +93,7 @@ Description: Natural sorting for python (doc)
  natsort comes with a shell script to use natural sorting in shell scripts. You
  can also execute natsort from the command line with python -m natsort.
  .
- There exists another natural sorting package for python called
+ There exists another natural sorting package for Python called
  python-naturalsort. You may prefer that package if you wish to only sort
  version numbers.
  .
