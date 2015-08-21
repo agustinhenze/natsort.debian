@@ -11,8 +11,6 @@ from math import isnan
 from operator import itemgetter
 from itertools import chain
 from pytest import raises
-from hypothesis import given, assume, example
-from hypothesis.specifiers import sampled_from
 from natsort.ns_enum import ns
 from natsort.utils import (
     _number_extracter,
