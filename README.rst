@@ -142,9 +142,7 @@ from the command line with ``python -m natsort``.
 Requirements
 ------------
 
-``natsort`` requires Python version 2.7 or greater or Python 3.3 or greater.
-Python 2.6 and 3.2 are no longer officially supported (no unit tests are performed)
-but it should work.
+``natsort`` requires Python version 2.7 or greater or Python 3.2 or greater.
 
 .. _optional:
 
@@ -227,27 +225,20 @@ History
 These are the last three entries of the changelog.  See the package documentation
 for the complete `changelog <http://pythonhosted.org//natsort/changelog.html>`_.
 
+06-25-2015 v. 4.0.3
+'''''''''''''''''''
+
+    - Fixed bad install on last release (sorry guys!).
+
+06-24-2015 v. 4.0.2
+'''''''''''''''''''
+
+    - Added back Python 2.6 and Python 3.2 compatibility. Unit testing is now
+      performed for these versions.
+    - Consolidated under-the-hood compatibility functionality.
+
 06-04-2015 v. 4.0.1
 '''''''''''''''''''
 
     - Added support for sorting NaN by internally converting to -Infinity
       or +Infinity
-
-05-17-2015 v. 4.0.0
-'''''''''''''''''''
-
-    - Made default behavior of 'natsort' search for unsigned ints,
-      rather than signed floats. This is a backwards-incompatible
-      change but in 99% of use cases it should not require any
-      end-user changes.
-    - Improved handling of locale-aware sorting on systems where the
-      underlying locale library is broken.
-    - Greatly improved all unit tests by adding the hypothesis library.
-
-04-06-2015 v. 3.5.6
-'''''''''''''''''''
-
-    - Added 'UNGROUPLETTERS' algorithm to get the case-grouping behavior of
-      an ordinal sort when using 'LOCALE'.
-    - Added convenience functions 'decoder', 'as_ascii', and 'as_utf8' for
-      dealing with bytes types.
