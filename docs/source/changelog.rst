@@ -3,6 +3,18 @@
 Changelog
 ---------
 
+06-25-2015 v. 4.0.3
+'''''''''''''''''''
+
+    - Fixed bad install on last release (sorry guys!).
+
+06-24-2015 v. 4.0.2
+'''''''''''''''''''
+
+    - Added back Python 2.6 and Python 3.2 compatibility. Unit testing is now
+      performed for these versions.
+    - Consolidated under-the-hood compatibility functionality.
+
 06-04-2015 v. 4.0.1
 '''''''''''''''''''
 

@@ -1,9 +1,9 @@
-natsort (4.0.1-1) unstable; urgency=medium
+natsort (4.0.3-1) unstable; urgency=medium
 
-  * Imported Upstream version 3.5.1
-  * Added myself into Uploaders field.
+  * Fix debian/watch
+  * Imported Upstream version 4.0.3
 
- -- Ulises Vitulli <dererk@debian.org>  Sat, 20 Jun 2015 11:48:18 -0300
+ -- Agustin Henze <tin@debian.org>  Fri, 21 Aug 2015 18:44:35 +0200
 
 natsort (3.5.1-1) unstable; urgency=medium
 
