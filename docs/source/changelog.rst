@@ -3,6 +3,42 @@
 Changelog
 ---------
 
+04-06-2015 v. 3.5.6
+'''''''''''''''''''
+
+    - Added 'UNGROUPLETTERS' algorithm to get the case-grouping behavior of
+      an ordinal sort when using 'LOCALE'.
+    - Added convenience functions 'decoder', 'as_ascii', and 'as_utf8' for
+      dealing with bytes types.
+
+04-04-2015 v. 3.5.5
+'''''''''''''''''''
+
+    - Added 'realsorted' and 'index_realsorted' functions for
+      forward-compatibility with >= 4.0.0.
+    - Made explanation of when to use "TYPESAFE" more clear in the docs.
+
+04-02-2015 v. 3.5.4
+'''''''''''''''''''
+
+    - Fixed bug where a 'TypeError' was raised if a string containing a leading
+      number was sorted with alpha-only strings when 'LOCALE' is used.
+
+03-26-2015 v. 3.5.3
+'''''''''''''''''''
+
+    - Fixed bug where '--reverse-filter' option in shell script was not
+      getting checked for correctness.
+    - Documentation updates to better describe locale bug, and illustrate
+      upcoming default behavior change.
+    - Internal improvements, including making test suite more granular.
+
+01-13-2015 v. 3.5.2
+'''''''''''''''''''
+
+    - Enhancement that will convert a 'pathlib.Path' object to a 'str' if
+      'ns.PATH' is enabled.
+
 09-25-2014 v. 3.5.1
 '''''''''''''''''''
 
@@ -19,7 +55,7 @@ Changelog
     - Added the 'alg' argument to the 'natsort' functions.  This argument
       accepts an enum that is used to indicate the options the user wishes
       to use.  The 'number_type', 'signed', 'exp', 'as_path', and 'py3_safe'
-      options are being depreciated and will become (undocumented)
+      options are being deprecated and will become (undocumented)
       keyword-only options in natsort version 4.0.0.
     - The user can now modify how 'natsort' handles the case of non-numeric
       characters.
@@ -47,7 +83,7 @@ Changelog
       passed on to recursive calls of 'natsort_key'.
     - Added a 'natsort_keygen' function that will generate a wrapped version
       of 'natsort_key' that is easier to call.  'natsort_key' is now set to
-      depreciate at natsort version 4.0.0.
+      deprecate at natsort version 4.0.0.
     - Added an 'as_path' option to 'natsorted' & co. that will try to treat
       input strings as filepaths. This will help yield correct results for
       OS-generated inputs like

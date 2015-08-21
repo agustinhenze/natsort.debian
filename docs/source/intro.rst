@@ -8,7 +8,7 @@ Natural sorting for python.
 
     - Source Code: https://github.com/SethMMorton/natsort
     - Downloads: https://pypi.python.org/pypi/natsort
-    - Documentation: http://pythonhosted.org//natsort/
+    - Documentation: http://pythonhosted.org/natsort/
 
 :mod:`natsort` was initially created for sorting scientific output filenames that
 contained floating point numbers in the names. There was a serious lack of
@@ -87,6 +87,21 @@ when you sort::
     >>> # On Python 2, sorted(a) would return [2.0, 6, '4.5', '5', 'a']
     >>> # On Python 3, sorted(a) would raise an "unorderable types" TypeError
 
+:mod:`natsort` does not officially support the `bytes` type on Python 3, but
+convenience functions are provided that help you decode to `str` first::
+
+    >>> from natsort import as_utf8
+    >>> a = [b'a', 14.0, 'b']
+    >>> # On Python 2, natsorted(a) would would work as expected.
+    >>> # On Python 3, natsorted(a) would raise a TypeError (bytes() < str())
+    >>> natsorted(a, key=as_utf8) == [14.0, b'a', 'b']
+    True
+    >>> a = [b'a56', b'a5', b'a6', b'a40']
+    >>> # On Python 2, natsorted(a) would would work as expected.
+    >>> # On Python 3, natsorted(a) would return the same results as sorted(a)
+    >>> natsorted(a, key=as_utf8) == [b'a5', b'a6', b'a40', b'a56']
+    True
+
 The natsort algorithm does other fancy things like 
 
  - recursively descend into lists of lists
@@ -139,12 +154,15 @@ without the package, but if you need to squeeze out that extra juice it is
 recommended you include this as a dependency.  ``natsort`` will not require (or
 check) that `fastnumbers <https://pypi.python.org/pypi/fastnumbers>`_ is installed.
 
-On some systems, Python's ``locale`` library can be buggy (I have found this to be
-the case on Mac OS X), so ``natsort`` will use
+On BSD-based systems (this includes Mac OS X), the underlying ``locale`` library
+can be buggy (please see http://bugs.python.org/issue23195), so ``natsort`` will use
 `PyICU <https://pypi.python.org/pypi/PyICU>`_ under the hood if it is installed
-on your computer; this will give more reliable results. ``natsort`` will not
-require (or check) that `PyICU <https://pypi.python.org/pypi/PyICU>`_ is installed
-at installation.
+on your computer; this will give more reliable cross-platform results.
+``natsort`` will not require (or check) that
+`PyICU <https://pypi.python.org/pypi/PyICU>`_ is installed at installation
+since in Linux-based systems and Windows systems ``locale`` should work just fine.
+Please visit https://github.com/SethMMorton/natsort/issues/21 for more details and
+how to install on Mac OS X.
 
 :mod:`natsort` comes with a shell script called :mod:`natsort`, or can also be called
 from the command line with ``python -m natsort``.  The command line script is
