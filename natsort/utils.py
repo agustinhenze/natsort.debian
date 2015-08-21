@@ -17,9 +17,9 @@ from itertools import islice
 from locale import localeconv
 
 # Local imports.
-from natsort.locale_help import locale_convert, grouper
+from natsort.locale_help import locale_convert, grouper, null_string
 from natsort.py23compat import py23_str, py23_zip
-from natsort.ns_enum import ns, _nsdict
+from natsort.ns_enum import ns, _ns
 
 # If the user has fastnumbers installed, they will get great speed
 # benefits. If not, we simulate the functions here.
@@ -28,10 +28,20 @@ try:
 except ImportError:
     from natsort.fake_fastnumbers import fast_float, fast_int, isreal
 
+# If the user has pathlib installed, the ns.PATH option will convert
+# Path objects to str before sorting.
+try:
+    from pathlib import PurePath  # PurePath is the base object for Paths.
+except ImportError:
+    PurePath = object  # To avoid NameErrors.
+    has_pathlib = False
+else:
+    has_pathlib = True
+
 # Group algorithm types for easy extraction
 _NUMBER_ALGORITHMS = ns.FLOAT | ns.INT | ns.UNSIGNED | ns.NOEXP
 _ALL_BUT_PATH = (ns.F | ns.I | ns.U | ns.N | ns.L |
-                 ns.IC | ns.LF | ns.G | ns.TYPESAFE)
+                 ns.IC | ns.LF | ns.G | ns.UG | ns.TYPESAFE)
 
 # The regex that locates floats
 _float_sign_exp_re = re.compile(r'([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)', re.U)
@@ -68,40 +78,50 @@ _regex_and_num_function_chooser = {
 }
 
 
+def _do_decoding(s, encoding):
+    """A function to decode a bytes string, or return the object as-is."""
+    try:
+        return s.decode(encoding)
+    except UnicodeError:
+        raise
+    except (AttributeError, TypeError):
+        return s
+
+
 def _args_to_enum(number_type, signed, exp, as_path, py3_safe):
     """A function to convert input booleans to an enum-type argument."""
     alg = 0
     if number_type is not float:
-        msg = "The 'number_type' argument is depreciated as of 3.5.0, "
+        msg = "The 'number_type' argument is deprecated as of 3.5.0, "
         msg += "please use 'alg=ns.FLOAT', 'alg=ns.INT', or 'alg=ns.VERSION'"
         warn(msg, DeprecationWarning)
-        alg |= (_nsdict['INT'] * bool(number_type in (int, None)))
-        alg |= (_nsdict['UNSIGNED'] * (number_type is None))
+        alg |= (_ns['INT'] * bool(number_type in (int, None)))
+        alg |= (_ns['UNSIGNED'] * (number_type is None))
     if signed is not None:
-        msg = "The 'signed' argument is depreciated as of 3.5.0, "
+        msg = "The 'signed' argument is deprecated as of 3.5.0, "
         msg += "please use 'alg=ns.UNSIGNED'."
         warn(msg, DeprecationWarning)
-        alg |= (_nsdict['UNSIGNED'] * (not signed))
+        alg |= (_ns['UNSIGNED'] * (not signed))
     if exp is not None:
-        msg = "The 'exp' argument is depreciated as of 3.5.0, "
+        msg = "The 'exp' argument is deprecated as of 3.5.0, "
         msg += "please use 'alg=ns.NOEXP'."
         warn(msg, DeprecationWarning)
-        alg |= (_nsdict['NOEXP'] * (not exp))
+        alg |= (_ns['NOEXP'] * (not exp))
     if as_path is not None:
-        msg = "The 'as_path' argument is depreciated as of 3.5.0, "
+        msg = "The 'as_path' argument is deprecated as of 3.5.0, "
         msg += "please use 'alg=ns.PATH'."
         warn(msg, DeprecationWarning)
-        alg |= (_nsdict['PATH'] * as_path)
+        alg |= (_ns['PATH'] * as_path)
     if py3_safe is not None:
-        msg = "The 'py3_safe' argument is depreciated as of 3.5.0, "
+        msg = "The 'py3_safe' argument is deprecated as of 3.5.0, "
         msg += "please use 'alg=ns.TYPESAFE'."
         warn(msg, DeprecationWarning)
-        alg |= (_nsdict['TYPESAFE'] * py3_safe)
+        alg |= (_ns['TYPESAFE'] * py3_safe)
     return alg
 
 
-def _input_parser(s, regex, numconv, py3_safe, use_locale, group_letters):
-    """Helper to parse the string input into numbers and strings."""
+def _number_extracter(s, regex, numconv, py3_safe, use_locale, group_letters):
+    """Helper to separate the string input into numbers and strings."""
 
     # Split the input string by numbers.
     # If the input is not a string, TypeError is raised.
@@ -122,20 +142,24 @@ def _input_parser(s, regex, numconv, py3_safe, use_locale, group_letters):
     if not s:  # Return empty tuple for empty results.
         return ()
     elif isreal(s[0]):
-        s = [''] + s
+        s = [null_string if use_locale else ''] + s
 
     # The _py3_safe function inserts "" between numbers in the list,
     # and is used to get around "unorderable types" in complex cases.
     # It is a separate function that needs to be requested specifically
     # because it is expensive to call.
-    return _py3_safe(s) if py3_safe else s
+    return _py3_safe(s, use_locale) if py3_safe else s
 
 
 def _path_splitter(s, _d_match=re.compile(r'\.\d').match):
     """Split a string into its path components. Assumes a string is a path."""
     path_parts = []
     p_append = path_parts.append
-    path_location = s
+    # Convert a pathlib PurePath object to a string.
+    if has_pathlib and isinstance(s, PurePath):
+        path_location = str(s)
+    else:
+        path_location = s
 
     # Continue splitting the path from the back until we have reached
     # '..' or '.', or until there is nothing left to split.
@@ -175,7 +199,7 @@ def _path_splitter(s, _d_match=re.compile(r'\.\d').match):
     return path_parts + base_parts
 
 
-def _py3_safe(parsed_list):
+def _py3_safe(parsed_list, use_locale):
     """Insert '' between two numbers."""
     length = len(parsed_list)
     if length < 2:
@@ -186,7 +210,7 @@ def _py3_safe(parsed_list):
         for before, after in py23_zip(islice(parsed_list, 0, length-1),
                                       islice(parsed_list, 1, None)):
             if isreal(before) and isreal(after):
-                nl_append("")
+                nl_append(null_string if use_locale else '')
             nl_append(after)
         return new_list
 
@@ -214,7 +238,7 @@ def _natsort_key(val, key, alg):
 
     # Convert the arguments to the proper input tuple
     try:
-        use_locale = alg & _nsdict['LOCALE']
+        use_locale = alg & _ns['LOCALE']
         inp_options = (alg & _NUMBER_ALGORITHMS,
                        localeconv()['decimal_point'] if use_locale else '.')
     except TypeError:
@@ -239,7 +263,7 @@ def _natsort_key(val, key, alg):
         # If this is a path, convert it.
         # An AttrubuteError is raised if not a string.
         split_as_path = False
-        if alg & _nsdict['PATH']:
+        if alg & _ns['PATH']:
             try:
                 val = _path_splitter(val)
             except AttributeError:
@@ -252,26 +276,33 @@ def _natsort_key(val, key, alg):
         # Assume the input are strings, which is the most common case.
         # Apply the string modification if needed.
         try:
-            if alg & _nsdict['LOWERCASEFIRST']:
+            if alg & _ns['LOWERCASEFIRST']:
                 val = val.swapcase()
-            if alg & _nsdict['IGNORECASE']:
+            if alg & _ns['IGNORECASE']:
                 val = val.lower()
-            return tuple(_input_parser(val,
-                                       regex,
-                                       num_function,
-                                       alg & _nsdict['TYPESAFE'],
-                                       use_locale,
-                                       alg & _nsdict['GROUPLETTERS']))
+            if use_locale and alg & _ns['UNGROUPLETTERS'] and val[0].isupper():
+                val = ' ' + val
+            return tuple(_number_extracter(val,
+                                           regex,
+                                           num_function,
+                                           alg & _ns['TYPESAFE'],
+                                           use_locale,
+                                           alg & _ns['GROUPLETTERS']))
         except (TypeError, AttributeError):
+            # Check if it is a bytes type, and if so return as a
+            # one element tuple.
+            if type(val) in (bytes,):
+                return (val,)
             # If not strings, assume it is an iterable that must
             # be parsed recursively. Do not apply the key recursively.
             # If this string was split as a path, turn off 'PATH'.
             try:
-                was_path = alg & _nsdict['PATH']
+                was_path = alg & _ns['PATH']
                 newalg = alg & _ALL_BUT_PATH
                 newalg |= (was_path * (not split_as_path))
                 return tuple([_natsort_key(x, None, newalg) for x in val])
             # If there is still an error, it must be a number.
             # Return as-is, with a leading empty string.
             except TypeError:
-                return (('', val,),) if alg & _nsdict['PATH'] else ('', val,)
+                n = null_string if use_locale else ''
+                return ((n, val,),) if alg & _ns['PATH'] else (n, val,)

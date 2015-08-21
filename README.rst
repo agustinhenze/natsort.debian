@@ -11,14 +11,19 @@ Natural sorting for python.
 
     - Source Code: https://github.com/SethMMorton/natsort
     - Downloads: https://pypi.python.org/pypi/natsort
-    - Documentation: http://pythonhosted.org//natsort/
+    - Documentation: http://pythonhosted.org/natsort/
+
+Please see `Deprecation Notices`_ for an `important` backwards incompatibility notice
+for ``natsort`` version 4.0.0.
 
 Quick Description
 -----------------
 
 When you try to sort a list of strings that contain numbers, the normal python
 sort algorithm sorts lexicographically, so you might not get the results that you
-expect::
+expect:
+
+.. code-block:: python
 
     >>> a = ['a2', 'a9', 'a1', 'a4', 'a10']
     >>> sorted(a)
@@ -30,7 +35,9 @@ letters (i.e. 'b', 'ba', 'c').
 
 ``natsort`` provides a function ``natsorted`` that helps sort lists "naturally",
 either as real numbers (i.e. signed/unsigned floats or ints), or as versions.
-Using ``natsorted`` is simple::
+Using ``natsorted`` is simple:
+
+.. code-block:: python
 
     >>> from natsort import natsorted
     >>> a = ['a2', 'a9', 'a1', 'a4', 'a10']
@@ -40,7 +47,9 @@ Using ``natsorted`` is simple::
 ``natsorted`` identifies real numbers anywhere in a string and sorts them
 naturally.
 
-Sorting version numbers is just as easy with the ``versorted`` function::
+Sorting version numbers is just as easy with the ``versorted`` function:
+
+.. code-block:: python
 
     >>> from natsort import versorted
     >>> a = ['version-1.9', 'version-2.0', 'version-1.11', 'version-1.10']
@@ -51,7 +60,9 @@ Sorting version numbers is just as easy with the ``versorted`` function::
 
 You can also perform locale-aware sorting (or "human sorting"), where the
 non-numeric characters are ordered based on their meaning, not on their
-ordinal value; this can be achieved with the ``humansorted`` function::
+ordinal value; this can be achieved with the ``humansorted`` function:
+
+.. code-block:: python
 
     >>> a = ['Apple', 'Banana', 'apple', 'banana']
     >>> natsorted(a)
@@ -66,11 +77,14 @@ ordinal value; this can be achieved with the ``humansorted`` function::
 You may find you need to explicitly set the locale to get this to work
 (as shown in the example).
 Please see the `following caveat <http://pythonhosted.org//natsort/examples.html#bug-note>`_
-and the "Optional Dependencies" section
-below before using the ``humansorted`` function.
+and the `Optional Dependencies`_ section
+below before using the ``humansorted`` function, *especially* if you are on a
+BSD-based system (like Mac OS X).
 
 You can mix and match ``int``, ``float``, and ``str`` (or ``unicode``) types
-when you sort::
+when you sort:
+
+.. code-block:: python
 
     >>> a = ['4.5', 6, 2.0, '5', 'a']
     >>> natsorted(a)
@@ -78,13 +92,30 @@ when you sort::
     >>> # On Python 2, sorted(a) would return [2.0, 6, '4.5', '5', 'a']
     >>> # On Python 3, sorted(a) would raise an "unorderable types" TypeError
 
+``natsort`` does not officially support the ``bytes`` type on Python 3, but
+convenience functions are provided that help you decode to ``str`` first:
+
+.. code-block:: python
+
+    >>> from natsort import as_utf8
+    >>> a = [b'a', 14.0, 'b']
+    >>> # On Python 2, natsorted(a) would would work as expected.
+    >>> # On Python 3, natsorted(a) would raise a TypeError (bytes() < str())
+    >>> natsorted(a, key=as_utf8) == [14.0, b'a', 'b']
+    True
+    >>> a = [b'a56', b'a5', b'a6', b'a40']
+    >>> # On Python 2, natsorted(a) would would work as expected.
+    >>> # On Python 3, natsorted(a) would return the same results as sorted(a)
+    >>> natsorted(a, key=as_utf8) == [b'a5', b'a6', b'a40', b'a56']
+    True
+
 The natsort algorithm does other fancy things like 
 
  - recursively descend into lists of lists
  - control the case-sensitivity
  - sort file paths correctly
  - allow custom sorting keys
- - exposes a natsort_key generator to pass to list.sort
+ - exposes a natsort_key generator to pass to ``list.sort``
 
 Please see the package documentation for more details, including 
 `examples and recipes <http://pythonhosted.org//natsort/examples.html>`_.
@@ -93,8 +124,7 @@ Shell script
 ------------
 
 ``natsort`` comes with a shell script called ``natsort``, or can also be called
-from the command line with ``python -m natsort``.  The command line script is
-only installed onto your ``PATH`` if you don't install via a wheel. 
+from the command line with ``python -m natsort``. 
 
 Requirements
 ------------
@@ -102,6 +132,8 @@ Requirements
 ``natsort`` requires python version 2.6 or greater
 (this includes python 3.x). To run version 2.6, 3.0, or 3.1 the 
 `argparse <https://pypi.python.org/pypi/argparse>`_ module is required.
+
+.. _optional:
 
 Optional Dependencies
 ---------------------
@@ -120,16 +152,29 @@ at installation.
 PyICU
 '''''
 
-On some systems, Python's ``locale`` library can be buggy (I have found this to be
-the case on Mac OS X), so ``natsort`` will use
+On BSD-based systems (this includes Mac OS X), the underlying ``locale`` library
+can be buggy (please see http://bugs.python.org/issue23195), so ``natsort`` will use
 `PyICU <https://pypi.python.org/pypi/PyICU>`_ under the hood if it is installed
-on your computer; this will give more reliable results. ``natsort`` will not
-require (or check) that `PyICU <https://pypi.python.org/pypi/PyICU>`_ is installed
-at installation.
+on your computer; this will give more reliable cross-platform results.
+``natsort`` will not require (or check) that
+`PyICU <https://pypi.python.org/pypi/PyICU>`_ is installed at installation
+since in Linux-based systems and Windows systems ``locale`` should work just fine.
+Please visit https://github.com/SethMMorton/natsort/issues/21 for more details and
+how to install on Mac OS X.
 
-Depreciation Notices
---------------------
+.. _deprecate:
 
+Deprecation Notices
+-------------------
+
+ - The default sorting algorithm for ``natsort`` will change in version 4.0.0
+   from signed floats (with exponents) to unsigned integers. The motivation
+   for this change is that it will cause ``natsort`` to return results that
+   pass the "least astonishment" test for the most common use case, which is
+   sorting version numbers. If you currently rely on the default behavior
+   to be signed floats, it is recommend that you add ``alg=ns.F`` to your
+   ``natsort`` calls or switch to the new ``realsorted`` function which
+   behaves identically to the current ``natsorted`` with default values.
  - In ``natsort`` version 4.0.0, the ``number_type``, ``signed``, ``exp``,
    ``as_path``, and ``py3_safe`` options will be removed from the (documented)
    API, in favor of the ``alg`` option and ``ns`` enum.  They will remain as
@@ -137,12 +182,6 @@ Depreciation Notices
  - In ``natsort`` version 4.0.0, the ``natsort_key`` function will be removed
    from the public API.  All future development should use ``natsort_keygen``
    in preparation for this.
- - In ``natsort`` version 3.1.0, the shell script changed how it interpreted
-   input; previously, all input was assumed to be a filepath, but as of 3.1.0
-   input is just treated as a string.  For most cases the results are the same.
- 
-   - As of ``natsort`` version 3.4.0, a ``--path`` option has been added to
-     force the shell script to interpret the input as filepaths. 
 
 Author
 ------
@@ -155,38 +194,23 @@ History
 These are the last three entries of the changelog.  See the package documentation
 for the complete `changelog <http://pythonhosted.org//natsort/changelog.html>`_.
 
-09-25-2014 v. 3.5.1
+04-06-2015 v. 3.5.6
 '''''''''''''''''''
 
-    - Fixed bug that caused list/tuples to fail when using 'ns.LOWECASEFIRST'
-      or 'ns.IGNORECASE'.
-    - Refactored modules so that only the public API was in natsort.py and
-      ns_enum.py.
-    - Refactored all import statements to be absolute, not relative.
+    - Added 'UNGROUPLETTERS' algorithm to get the case-grouping behavior of
+      an ordinal sort when using 'LOCALE'.
+    - Added convenience functions 'decoder', 'as_ascii', and 'as_utf8' for
+      dealing with bytes types.
 
-09-02-2014 v. 3.5.0
+04-04-2015 v. 3.5.5
 '''''''''''''''''''
 
-    - Added the 'alg' argument to the 'natsort' functions.  This argument
-      accepts an enum that is used to indicate the options the user wishes
-      to use.  The 'number_type', 'signed', 'exp', 'as_path', and 'py3_safe'
-      options are being depreciated and will become (undocumented)
-      keyword-only options in natsort version 4.0.0.
-    - The user can now modify how 'natsort' handles the case of non-numeric
-      characters.
-    - The user can now instruct 'natsort' to use locale-aware sorting, which
-      allows 'natsort' to perform true "human sorting".
+    - Added 'realsorted' and 'index_realsorted' functions for
+      forward-compatibility with >= 4.0.0.
+    - Made explanation of when to use "TYPESAFE" more clear in the docs.
 
-      - The `humansorted` convenience function has been included to make this
-        easier.
-
-    - Updated shell script with locale functionality.
-
-08-12-2014 v. 3.4.1
+04-02-2015 v. 3.5.4
 '''''''''''''''''''
 
-    - 'natsort' will now use the 'fastnumbers' module if it is installed. This
-      gives up to an extra 30% boost in speed over the previous performance
-      enhancements.
-    - Made documentation point to more 'natsort' resources, and also added a
-      new example in the examples section.
+    - Fixed bug where a 'TypeError' was raised if a string containing a leading
+      number was sorted with alpha-only strings when 'LOCALE' is used.
