@@ -1,3 +1,10 @@
+natsort (4.0.3-1) unstable; urgency=medium
+
+  * Fix debian/watch
+  * Imported Upstream version 4.0.3
+
+ -- Agustin Henze <tin@debian.org>  Fri, 21 Aug 2015 18:44:35 +0200
+
 natsort (3.5.1-1) unstable; urgency=medium
 
   * Imported Upstream version 3.5.1
