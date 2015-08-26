@@ -1,3 +1,10 @@
+natsort (4.0.3-2) unstable; urgency=medium
+
+  * Fix code example in package description (Closes: #778767)
+    Thanks to Daniele Forsi <dforsi@gmail.com>
+
+ -- Agustin Henze <tin@debian.org>  Wed, 26 Aug 2015 11:23:08 +0200
+
 natsort (4.0.3-1) unstable; urgency=medium
 
   * Fix debian/watch
